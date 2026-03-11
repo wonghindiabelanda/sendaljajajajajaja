@@ -2125,3 +2125,4 @@ task.spawn(function() while GUI and GUI.Parent do updateGUI() task.wait(0.3) end
 
 task.spawn(function() while not servicesLoaded do task.wait(0.5) end end)
 
+
