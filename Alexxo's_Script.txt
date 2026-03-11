@@ -1717,7 +1717,7 @@ end
 local function returnToSpawn()
     if not HumanoidRootPart then return end
     local target = TARGET_CFRAME.Position + Vector3.new(0, SAFE_HEIGHT, 0)
-    safeTween(CFrame.new(target), RETURN_SPEED, "return")
+    game:GetService("ReplicatedStorage").Shared.Packages.Knit.Services.CharacterService.RF.Reset:InvokeServer()
 end
 
 local function moveToSpawn()
@@ -1728,10 +1728,16 @@ local function moveToSpawn()
     if dist > 800 then
         local steps = math.ceil(dist / 400)
         local dir = (target - start).Unit
-        game:GetService("ReplicatedStorage").Shared.Packages.Knit.Services.CharacterService.RF.Reset:InvokeServer()
+        for i = 1, steps do
+            if not HumanoidRootPart then return end
+            local wp = start + (dir * 400 * i)
+            wp = Vector3.new(wp.X, math.max(wp.Y, SAFE_Y)+SAFE_HEIGHT, wp.Z)
+            safeTween(CFrame.new(wp), SPAWN_TRAVEL_SPEED, "spawn")
+            randomWait(0.25, 0.3)
+        end
     end
     local final = Vector3.new(target.X, math.max(target.Y, SAFE_Y)+SAFE_HEIGHT, target.Z)
-    game:GetService("ReplicatedStorage").Shared.Packages.Knit.Services.CharacterService.RF.Reset:InvokeServer()    
+    safeTween(CFrame.new(final), SPAWN_TRAVEL_SPEED, "spawn")    
 end
 
 local function updateActivity() lastActivityTime = tick() end
@@ -2118,3 +2124,4 @@ end
 task.spawn(function() while GUI and GUI.Parent do updateGUI() task.wait(0.3) end end)
 
 task.spawn(function() while not servicesLoaded do task.wait(0.5) end end)
+
