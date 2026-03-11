@@ -1990,6 +1990,143 @@ local function startBot()
                     local moved = (curPos - lastPos).Magnitude
 
                     if moved < 0.03 and math.abs(curHealth - lastHealth) < 0.5 then
+                        if not transforming then transforming = true; stablePos = local function startBot()
+    if isRunning then return end
+    isRunning = true
+    diedRecently = false
+    sessionStartTime = tick()
+    if StatusLabel and StatusLabel.Parent then
+        StatusLabel.Text = "[Fighting]"
+        StatusLabel.TextColor3 = Color3.fromRGB(0,255,0)
+    end
+
+    if deathConnection then deathConnection:Disconnect() end
+    if Humanoid then
+        deathConnection = Humanoid.Died:Connect(function()
+            diedRecently = false
+            if webhookSettings.enabled and webhookSettings.notifyDeath and webhookSettings.url ~= "" then
+                task.spawn(function() sendWebhook("You died!", "death", nil) end)
+            end
+        end)
+    end
+
+    task.spawn(function()
+        while isRunning do
+            if diedRecently then
+                currentAction = "You died! Click START to resume."
+                cleanupFight()
+                isRunning = false
+                break
+            end
+
+            if not waitForCharacter() then break end
+
+            local ok, err = pcall(function()
+                if not servicesLoaded then randomWait(1,0.3) return end
+                if isDead() then cleanupFight() randomWait(2,0.5) return end
+
+                local boss = getClosestBoss()
+                if not boss then
+                    if currentBoss then
+                        currentAction = "Returning to spawn"
+                        cleanupFight()
+                        if isDead() then randomWait(3,0.5) return end
+                        returnToSpawn()
+                        randomWait(0.5,0.3)
+                    else
+                        if isDead() then return end
+                        currentAction = "Moving to spawn"
+                        HumanoidRootPart.Anchored = false
+                        moveToSpawn()
+                        if isDead() then return end
+
+                        HumanoidRootPart.Anchored = true
+                        currentAction = "Spawning boss"
+                        updateActivity()
+
+                        local lock = RunService.RenderStepped:Connect(function()
+                            if HumanoidRootPart then HumanoidRootPart.CFrame = TARGET_CFRAME end
+                        end)
+
+                        for i = 1, EXECUTION_COUNT1 do
+                            if isDead() or not isRunning then break end
+                            task.spawn(function()
+                                if ANTI_BAN then task.wait(math.random()*0.1) end
+                                pcall(function()
+                                    ActivatePartyRF:InvokeServer()
+                                    CreatePartyRF:InvokeServer("Asura's Incarnate")
+                                    ProximityRF:InvokeServer(Workspace.Proximity.CreateParty)
+                                end)
+                            end)
+                            task.wait(0.005)
+                            updateActivity()
+                        end
+
+                        lock:Disconnect()
+                        if HumanoidRootPart then HumanoidRootPart.Anchored = false end
+                        randomWait(2.5,0.3)
+                    end
+                    return
+                end
+
+                currentBoss = boss
+                local bossHRP = boss:WaitForChild("HumanoidRootPart")
+                local bossHum = boss:WaitForChild("Humanoid")
+                updateActivity()
+
+                Humanoid.PlatformStand = false
+                Humanoid.AutoRotate = false
+
+                currentAction = "Approaching boss"
+                huntBoss(bossHRP)
+                if not isRunning then return end
+                updateActivity()
+
+                bodyPos = Instance.new("BodyPosition")
+                bodyPos.MaxForce = Vector3.new(8000,8000,8000)
+                bodyPos.D = 800
+                bodyPos.P = 5000
+                bodyPos.Parent = HumanoidRootPart
+
+                bodyGyro = Instance.new("BodyGyro")
+                bodyGyro.MaxTorque = Vector3.new(math.huge,math.huge,math.huge)
+                bodyGyro.P = 3000
+                bodyGyro.Parent = HumanoidRootPart
+
+                local lastAttack = 0
+                local lastHealth = bossHum.Health
+                local lastPos = bossHRP.Position
+                local transforming = false
+                local stablePos = nil
+
+                followConnection = RunService.Heartbeat:Connect(function(dt)
+                    if not isRunning then return end
+                    if isDead() then return end
+                    if HumanoidRootPart.Position.Y < VOID_Y then
+                        currentAction = "Fell, recovering"
+                        cleanupFight()
+                        pcall(function() safeTween(TARGET_CFRAME + Vector3.new(0,SAFE_HEIGHT,0), RETURN_SPEED, "return") end)
+                        return
+                    end
+                    updateActivity()
+                    if not boss.Parent or not bossHum or bossHum.Health <= 0 then return end
+                    if not bossHRP or not bossHRP.Parent then return end
+                    if not isBossOnFloor(bossHRP) then return end
+
+                    local dist = (HumanoidRootPart.Position - bossHRP.Position).Magnitude
+                    if dist > MAX_BOSS_DISTANCE then
+                        currentAction = "Lost boss, returning"
+                        cleanupFight()
+                        local safe = bossHRP.Position + BEHIND_OFFSET + Vector3.new(0,SAFE_HEIGHT,0)
+                        safeTween(CFrame.new(safe, bossHRP.Position), RETURN_SPEED, "return")
+                        return
+                    end
+
+                    local curPos = bossHRP.Position
+                    local curHealth = bossHum.Health
+                    local moved = (curPos - lastPos).Magnitude
+
+                    if moved < 0.03 and math.abs(curHealth - lastHealth) < 0.5 then
                         if not transforming then transforming = true; stablePos = HumanoidRootPart.Position end
                     else
                         if transforming then transforming = false; stablePos = nil end
@@ -2002,7 +2139,7 @@ local function startBot()
                         local desired = bossHRP.Position + BEHIND_OFFSET
                         if stablePos then stablePos = stablePos:Lerp(desired, dt*3) else stablePos = desired end
                         bodyPos.Position = stablePos
-                        bodyGyro.CFrame = CFrame.new(HumanoidRootPart.Position, bossHRP.Position)
+                        bodyGyro.CFrame = CFrame.new(HumanoidRootPart.Position) * CFrame.Angles(math.rad(-90), 0, 0)
                         local now = tick()
                         local attackDelay = ANTI_BAN and (ATTACK_DELAY * (0.8+math.random()*0.4)) or ATTACK_DELAY
                         if now - lastAttack >= attackDelay then
@@ -2013,7 +2150,7 @@ local function startBot()
                         currentAction = "Fighting boss"
                         bodyPos.Position = bossHRP.Position + BEHIND_OFFSET
                         bodyPos.D = 1000
-                        bodyGyro.CFrame = CFrame.new(HumanoidRootPart.Position, bossHRP.Position)
+                        bodyGyro.CFrame = CFrame.new(HumanoidRootPart.Position) * CFrame.Angles(math.rad(-90), 0, 0)
 
                         local now = tick()
                         local attackDelay = ANTI_BAN and (ATTACK_DELAY * (0.8+math.random()*0.4)) or ATTACK_DELAY
@@ -2124,4 +2261,5 @@ end
 task.spawn(function() while GUI and GUI.Parent do updateGUI() task.wait(0.3) end end)
 
 task.spawn(function() while not servicesLoaded do task.wait(0.5) end end)
+
 
