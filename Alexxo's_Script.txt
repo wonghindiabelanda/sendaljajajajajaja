@@ -2002,8 +2002,9 @@ local function startBot()
                         local desired = bossHRP.Position + BEHIND_OFFSET
                         if stablePos then stablePos = stablePos:Lerp(desired, dt*3) else stablePos = desired end
                         bodyPos.Position = stablePos
-                        bodyGyro.CFrame = CFrame.new(HumanoidRootPart.Position) * CFrame.Angles(math.rad(-90), 0, 0)
-                        local now = tick()
+                        local direction = (bossHRP.Position - HumanoidRootPart.Position).Unit
+                        bodyGyro.CFrame = CFrame.lookAt(HumanoidRootPart.Position, HumanoidRootPart.Position + direction) * CFrame.Angles(math.rad(-90), 0, 0)
+
                         local attackDelay = ANTI_BAN and (ATTACK_DELAY * (0.8+math.random()*0.4)) or ATTACK_DELAY
                         if now - lastAttack >= attackDelay then
                             lastAttack = now
@@ -2013,7 +2014,8 @@ local function startBot()
                         currentAction = "Fighting boss"
                         bodyPos.Position = bossHRP.Position + BEHIND_OFFSET
                         bodyPos.D = 1000
-                        bodyGyro.CFrame = CFrame.new(HumanoidRootPart.Position) * CFrame.Angles(math.rad(-90), 0, 0)
+                        local direction = (bossHRP.Position - HumanoidRootPart.Position).Unit
+                        bodyGyro.CFrame = CFrame.lookAt(HumanoidRootPart.Position, HumanoidRootPart.Position + direction) * CFrame.Angles(math.rad(-90), 0, 0)
 
                         local now = tick()
                         local attackDelay = ANTI_BAN and (ATTACK_DELAY * (0.8+math.random()*0.4)) or ATTACK_DELAY
@@ -2124,5 +2126,6 @@ end
 task.spawn(function() while GUI and GUI.Parent do updateGUI() task.wait(0.3) end end)
 
 task.spawn(function() while not servicesLoaded do task.wait(0.5) end end)
+
 
 
